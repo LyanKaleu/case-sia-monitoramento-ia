@@ -21,6 +21,7 @@ CHECK:
 
 GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/search?q={query}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
 RAW_PATH = os.path.join("data", "news_raw.json")
+LIMITED_PATH = os.path.join("data", "news_limited.json")
 
 
 def build_rss_url(query):
@@ -42,16 +43,20 @@ def fetch_rss(query, retry=1):
 		return {"error": str(e)}
 
 
-def parse_rss(xml_content):
+def parse_rss(xml_content, limit=None):
 	news_list = []
 	try:
 		tree = ElementTree.fromstring(xml_content)
-		for item in tree.findall('.//item'):
-			title = item.findtext('title')
-			link = item.findtext('link')
+		items = tree.findall('.//item')
+		if limit is not None:
+			items = items[:limit]
+
+		for item in items:
+			title = item.findtext('title') or ""
+			link = item.findtext('link') or ""
 			pub_date = item.findtext('pubDate')
 			source = item.find('source').text if item.find('source') is not None else None
-			description = item.findtext('description')
+			description = item.findtext('description') or ""
 			id_hash = hashlib.md5((title+link).encode()).hexdigest()
 			news_list.append({
 				"id": id_hash,
@@ -66,30 +71,43 @@ def parse_rss(xml_content):
 	return news_list, None
 
 
-def save_raw_news(news, warning=None):
-	data = {"news": news}
+def save_data(data, path, warning=None):
+	save_data = {"news": data}
 	if warning:
-		data["warning"] = warning
-	with open(RAW_PATH, "w", encoding="utf-8") as f:
-		json.dump(data, f, ensure_ascii=False, indent=2)
+		save_data["warning"] = warning
+	
+	with open(path, "w", encoding="utf-8") as f:
+		json.dump(save_data, f, ensure_ascii=False, indent=2)
 
 
 def main(queries):
-	all_news = []
+	all_news_raw = []  
+	all_news_limited = [] 
+
 	for query in queries:
 		xml_content = fetch_rss(query)
 		if isinstance(xml_content, dict) and "error" in xml_content:
-			save_raw_news([], warning=xml_content["error"])
+			save_data([], RAW_PATH, warning=xml_content["error"])
+			save_data([], LIMITED_PATH, warning=xml_content["error"])
 			return
-		news, parse_error = parse_rss(xml_content)
+		
+		raw_news, parse_error = parse_rss(xml_content)
 		if parse_error:
-			save_raw_news([], warning=parse_error)
+			save_data([], RAW_PATH, warning=parse_error)
+			save_data([], LIMITED_PATH, warning=parse_error)
 			return
-		all_news.extend(news)
+		
+		limited_news, _ = parse_rss(xml_content, limit=15)
+
+		all_news_raw.extend(raw_news)
+		all_news_limited.extend(limited_news)
+
 	warning = None
-	if len(all_news) < 5:
+	if len(all_news_limited) < 5:
 		warning = "Menos de 5 notícias encontradas. Verificar DECISIONS.md."
-	save_raw_news(all_news, warning=warning)
+
+	save_data(all_news_raw, RAW_PATH, warning)
+	save_data(all_news_limited, LIMITED_PATH, warning)
 
 
 if __name__ == "__main__":

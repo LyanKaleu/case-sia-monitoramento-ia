@@ -13,6 +13,9 @@ CHECK:
 
 import re
 from bs4 import BeautifulSoup
+import json
+import os
+import pandas as pd
 
 
 PORTUGUESE_STOPWORDS = {
@@ -50,3 +53,35 @@ def tokenize_and_filter(text):
     tokens = text.split()
     filtered = [t for t in tokens if t not in PORTUGUESE_STOPWORDS and len(t) > 2]
     return filtered
+
+
+def main():
+    raw_path = os.path.join("data", "news_raw.json")
+    processed_path = os.path.join("data", "news_processed.json")
+
+    if not os.path.exists(raw_path):
+        print(f"Arquivo {raw_path} não encontrado.")
+        return
+    
+    with open(raw_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        news = data.get("news", [])
+    
+    if not news:
+        print("Nenhuma notícia para processar.")
+        with open(processed_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+        return
+    
+    df = pd.DataFrame(news)
+    df["text_clean"] = df["description"].apply(clean_html).apply(normalize)
+    df["tokens"] = df["text_clean"].apply(tokenize_and_filter)
+
+    with open(processed_path, "w", encoding="utf-8") as f:
+        json.dump({"news": df.to_dict("records")}, f, ensure_ascii=False, indent=2)
+
+    print(f"Notícias processadas e salvas em {processed_path}")
+
+
+if __name__ == "__main__":
+    main()

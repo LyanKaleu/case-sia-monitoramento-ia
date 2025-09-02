@@ -47,9 +47,14 @@ def main():
     parser.add_argument("--top", type=int, default=None, help="Exporta apenas os top N registros")
     args = parser.parse_args()
 
-    json_path = os.path.join("data", "news_raw.json")
+    json_path = os.path.join("data", "news_sentiment.json")
     out_path = os.path.join("data", f"news_export.{'csv' if args.csv else 'json'}")
+
     data = load_data(json_path)
+    if not data:
+        print("Nenhum dado para exportar.")
+        return
+    
     export_data(data, out_path, top_n=args.top, as_csv=args.csv, force=args.force)
 
 
