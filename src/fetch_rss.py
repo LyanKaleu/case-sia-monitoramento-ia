@@ -3,6 +3,7 @@ import hashlib
 import json
 import os
 from xml.etree import ElementTree
+from bs4 import BeautifulSoup
 
 
 '''
@@ -21,7 +22,7 @@ CHECK:
 
 GOOGLE_NEWS_RSS_URL = "https://news.google.com/rss/search?q={query}&hl=pt-BR&gl=BR&ceid=BR:pt-419"
 RAW_PATH = os.path.join("data", "news_raw.json")
-LIMITED_PATH = os.path.join("data", "news_limited.json")
+LIMITED_PATH = os.path.join("data", "_intermediate", "news_limited.json")
 
 
 def build_rss_url(query):
@@ -57,6 +58,7 @@ def parse_rss(xml_content, limit=None):
 			pub_date = item.findtext('pubDate')
 			source = item.find('source').text if item.find('source') is not None else None
 			description = item.findtext('description') or ""
+			description = BeautifulSoup(description, "html.parser").get_text()
 			id_hash = hashlib.md5((title+link).encode()).hexdigest()
 			news_list.append({
 				"id": id_hash,
@@ -80,7 +82,21 @@ def save_data(data, path, warning=None):
 		json.dump(save_data, f, ensure_ascii=False, indent=2)
 
 
-def main(queries):
+def get_article_text(url):
+    """Tenta extrair o texto principal de uma notícia a partir do link."""
+    try:
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            return ""
+        soup = BeautifulSoup(response.content, "html.parser")
+        paragraphs = soup.find_all("p")
+        text = " ".join([p.get_text() for p in paragraphs])
+        return text.strip()
+    except Exception as e:
+        return ""
+
+
+def main(queries, limit_total=15):
 	all_news_raw = []  
 	all_news_limited = [] 
 
@@ -97,14 +113,17 @@ def main(queries):
 			save_data([], LIMITED_PATH, warning=parse_error)
 			return
 		
-		limited_news, _ = parse_rss(xml_content, limit=15)
-
+		for news in raw_news:
+			if len(all_news_limited) < limit_total:
+				all_news_limited.append(news)
 		all_news_raw.extend(raw_news)
-		all_news_limited.extend(limited_news)
 
+		if len(all_news_limited) >= limit_total:
+			break
+	
 	warning = None
 	if len(all_news_limited) < 5:
-		warning = "Menos de 5 notícias encontradas. Verificar DECISIONS.md."
+		warning = "Menos de 5 notícias coletadas."
 
 	save_data(all_news_raw, RAW_PATH, warning)
 	save_data(all_news_limited, LIMITED_PATH, warning)

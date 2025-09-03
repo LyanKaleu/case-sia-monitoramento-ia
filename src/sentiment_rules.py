@@ -20,8 +20,16 @@ CHECK:
 - Não usar modelos de ML - explique por que
 '''
 
-POSITIVE_WORDS = {"bom", "positivo", "aprovado", "inovador", "avançado", "promissor"}
-NEGATIVE_WORDS = {"ruim", "crítico", "problema", "preocupação", "risco", "polêmica"}
+POSITIVE_WORDS = {"bom","boa","positivo","aprovado","inovador","avançado","promissor","benefício","beneficios",
+    "oportunidade","capacitação","capacitar","formação","investimento","expansão","parceria",
+    "conquista","reconhecimento","premiado","premiação","avanço","avanços","modernização",
+    "eficiência","transparência","segurança","melhoria","otimização","digitalização","transformação",
+    "crescimento","apoio","fomento","bolsa","edital","seleção","contratação","abertura"}
+NEGATIVE_WORDS = {"ruim","crítico","critico","problema","preocupação","risco","polêmica","polêmico","polêmica",
+    "fraude","vazamento","vazou","falha","erro","queda","atraso","irregularidade","processo",
+    "denúncia","denuncia","investigação","bloqueio","multado","multa","corte","redução","desligamento",
+    "demissão","desemprego","dúvida","temor","medo","ameaça","ilegal","crime","golpe","fake","falso",
+    "desinformação","desinformacoes","boato","crítica","criticou","controvérsia"}
 
 def sentiment_score(text):
     """
@@ -31,8 +39,9 @@ def sentiment_score(text):
     if not text:
         return 0
     tokens = text.lower().split()
-    score = sum(token in POSITIVE_WORDS for token in tokens) - sum(token in NEGATIVE_WORDS for token in tokens)
-    return score
+    pos = sum(t in POSITIVE_WORDS for t in tokens)
+    neg = sum(t in NEGATIVE_WORDS for t in tokens)
+    return pos - neg
 
 
 def sentiment_label(score):
@@ -56,7 +65,7 @@ def analyze_sentiment(text):
 
 
 def main():
-    processed_path = os.path.join("data", "news_processed.json")
+    processed_path = os.path.join("data", "_intermediate", "news_processed.json")
     sentiment_path = os.path.join("data", "news_sentiment.json")
 
     if not os.path.exists(processed_path):
